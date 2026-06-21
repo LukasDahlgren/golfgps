@@ -375,6 +375,26 @@
   right: 14px;
 }
 
+.clear-button {
+  position: absolute;
+  z-index: 1000;
+  bottom: max(37px, calc(env(safe-area-inset-bottom) + 29px));
+  left: 50%;
+  min-height: 44px;
+  padding: 0 20px;
+  transform: translateX(-50%);
+  border: 2px solid white;
+  border-radius: 999px;
+  color: white;
+  background: var(--surface);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.38);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 850;
+  touch-action: manipulation;
+  backdrop-filter: blur(12px);
+}
+
 .location-fab span {
   transform: rotate(-42deg);
   font-size: 25px;
@@ -390,7 +410,8 @@
 
 .course-picker-button:focus-visible,
 .location-fab:focus-visible,
-.third-point-fab:focus-visible {
+.third-point-fab:focus-visible,
+.clear-button:focus-visible {
   outline: 3px solid white;
   outline-offset: 2px;
 }
@@ -399,6 +420,10 @@
 .location-fab:active,
 .third-point-fab:active {
   transform: translateY(1px);
+}
+
+.clear-button:active {
+  transform: translate(-50%, 1px);
 }
 
 .point-placement {

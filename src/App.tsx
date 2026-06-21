@@ -189,6 +189,16 @@ function App() {
     )
   }, [courseName, lookupGolf, updatePoint])
 
+  const clearMeasurement = useCallback(() => {
+    setAppState({
+      pointA: lastGpsPoint,
+      pointB: null,
+      pointC: null,
+      showPointC: false,
+    })
+    setHeldPoint(null)
+  }, [lastGpsPoint])
+
   const route =
     appState.pointA && appState.pointB
       ? appState.showPointC && appState.pointC
@@ -325,6 +335,16 @@ function App() {
       >
         <span aria-hidden="true">▲</span>
       </button>
+
+      {appState.pointA || appState.pointB || appState.pointC ? (
+        <button
+          className="clear-button"
+          type="button"
+          onClick={clearMeasurement}
+        >
+          Clear
+        </button>
+      ) : null}
 
       {appState.pointA && appState.pointB ? (
         <button
