@@ -253,12 +253,27 @@ function App() {
           maxZoom={23}
         />
         {route ? (
-          <Polyline positions={route} pathOptions={{ className: 'ruler-line' }} />
+          <Polyline
+            positions={route}
+            pathOptions={{
+              className: 'ruler-line',
+              color: '#ffffff',
+              weight: 4,
+              lineCap: 'round',
+            }}
+          />
         ) : null}
         {directRoute ? (
           <Polyline
             positions={directRoute}
-            pathOptions={{ className: 'direct-line' }}
+            pathOptions={{
+              className: 'direct-line',
+              color: '#ffcc33',
+              weight: 4,
+              dashArray: '1 10',
+              lineCap: 'round',
+              opacity: 1,
+            }}
           />
         ) : null}
         {segmentLabels.map((label) => (
