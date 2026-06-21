@@ -4,8 +4,8 @@ export type Point = {
 }
 
 export type AppState = {
-  pointA: Point
-  pointB: Point
-  pointC: Point
+  pointA: Point | null
+  pointB: Point | null
+  pointC: Point | null
   showPointC: boolean
 }

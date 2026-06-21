@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import L, { type LeafletEvent } from 'leaflet'
+import L, { type LeafletEvent, type LeafletMouseEvent } from 'leaflet'
 import {
   MapContainer,
   Marker,
   Polyline,
   TileLayer,
   useMap,
+  useMapEvents,
 } from 'react-leaflet'
 import { findNearbyGolf } from './golf/overpass'
 import type { NearbyCourse } from './golf/overpass'
@@ -19,9 +20,9 @@ const COURSE_STORAGE_KEY = 'golf-ruler-course-v1'
 const DEFAULT_COURSE_NAME = 'Ingarö GK'
 
 const DEFAULT_STATE: AppState = {
-  pointA: { lat: 59.33005, lng: 18.06735 },
-  pointB: { lat: 59.32795, lng: 18.06985 },
-  pointC: { lat: 59.3291, lng: 18.06855 },
+  pointA: null,
+  pointB: null,
+  pointC: null,
   showPointC: false,
 }
 
@@ -75,6 +76,17 @@ function RecenterMap({ target }: { target: Point | null }) {
   return null
 }
 
+function MapLongPress({ onSelect }: { onSelect: (point: Point) => void }) {
+  useMapEvents({
+    contextmenu(event: LeafletMouseEvent) {
+      event.originalEvent.preventDefault()
+      onSelect({ lat: event.latlng.lat, lng: event.latlng.lng })
+    },
+  })
+
+  return null
+}
+
 function App() {
   const [appState, setAppState] = useState<AppState>(() =>
     loadAppState(DEFAULT_STATE),
@@ -87,6 +99,7 @@ function App() {
   const [lastGpsPoint, setLastGpsPoint] = useState<Point | null>(null)
   const [coursePickerOpen, setCoursePickerOpen] = useState(false)
   const [courseSearch, setCourseSearch] = useState('')
+  const [heldPoint, setHeldPoint] = useState<Point | null>(null)
   const [courseName, setCourseName] = useState(() => {
     try {
       return localStorage.getItem(COURSE_STORAGE_KEY) ?? DEFAULT_COURSE_NAME
@@ -117,12 +130,16 @@ function App() {
   )
 
   const distances = useMemo(
-    () => ({
-      ab: Math.round(distanceMeters(appState.pointA, appState.pointB)),
-      ac: Math.round(distanceMeters(appState.pointA, appState.pointC)),
-      cb: Math.round(distanceMeters(appState.pointC, appState.pointB)),
-    }),
-    [appState.pointA, appState.pointB, appState.pointC],
+    () => {
+      const { pointA, pointB, pointC } = appState
+      if (!pointA || !pointB) return null
+      return {
+        ab: Math.round(distanceMeters(pointA, pointB)),
+        ac: pointC ? Math.round(distanceMeters(pointA, pointC)) : null,
+        cb: pointC ? Math.round(distanceMeters(pointC, pointB)) : null,
+      }
+    },
+    [appState],
   )
 
   const filteredCourses = useMemo(() => {
@@ -133,7 +150,12 @@ function App() {
         )
       : nearbyCourses
   }, [courseSearch, nearbyCourses])
+  const measurementHint =
+    !appState.pointA || !appState.pointB
+      ? 'Press and hold the map to set start or goal'
+      : null
   const settledStatus = [
+    measurementHint,
     golfStatus,
     gpsAccuracy !== null ? `GPS accuracy ±${gpsAccuracy} m` : null,
   ]
@@ -146,10 +168,8 @@ function App() {
       try {
         const suggestion = await findNearbyGolf(origin, selectedCourse)
         setNearbyCourses(suggestion.nearbyCourses)
-        if (suggestion.green) updatePoint('pointB', suggestion.green)
-
         if (suggestion.courseName && suggestion.green) {
-          setGolfStatus(`${suggestion.courseName} · nearest mapped green`)
+          setGolfStatus(`${suggestion.courseName} · nearby green found`)
         } else if (suggestion.courseName) {
           setGolfStatus(`${suggestion.courseName} · no mapped green nearby`)
         } else {
@@ -161,7 +181,7 @@ function App() {
         setLocationStatus(null)
       }
     },
-    [updatePoint],
+    [],
   )
 
   const selectCourse = useCallback(
@@ -201,29 +221,35 @@ function App() {
     )
   }, [courseName, lookupGolf, updatePoint])
 
-  const route = appState.showPointC
-    ? [appState.pointA, appState.pointC, appState.pointB]
-    : [appState.pointA, appState.pointB]
-  const segmentLabels = appState.showPointC
-    ? [
+  const route =
+    appState.pointA && appState.pointB
+      ? appState.showPointC && appState.pointC
+        ? [appState.pointA, appState.pointC, appState.pointB]
+        : [appState.pointA, appState.pointB]
+      : null
+  const segmentLabels =
+    appState.pointA && appState.pointB && distances
+      ? appState.showPointC && appState.pointC
+        ? [
         {
           key: 'ac',
           position: midpoint(appState.pointA, appState.pointC),
-          distance: distances.ac,
+          distance: distances.ac ?? 0,
         },
         {
           key: 'cb',
           position: midpoint(appState.pointC, appState.pointB),
-          distance: distances.cb,
+          distance: distances.cb ?? 0,
         },
       ]
-    : [
+        : [
         {
           key: 'ab',
           position: midpoint(appState.pointA, appState.pointB),
           distance: distances.ab,
         },
       ]
+      : []
 
   return (
     <main className="app-shell">
@@ -239,7 +265,9 @@ function App() {
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           maxZoom={23}
         />
-        <Polyline positions={route} pathOptions={{ className: 'ruler-line' }} />
+        {route ? (
+          <Polyline positions={route} pathOptions={{ className: 'ruler-line' }} />
+        ) : null}
         {segmentLabels.map((label) => (
           <Marker
             key={label.key}
@@ -250,27 +278,31 @@ function App() {
             zIndexOffset={500}
           />
         ))}
-        <Marker
-          position={appState.pointA}
-          icon={MARKER_ICONS.A}
-          draggable
-          eventHandlers={{
-            drag: handleMarkerMove('pointA'),
-            dragend: handleMarkerMove('pointA'),
-          }}
-          title="Point A"
-        />
-        <Marker
-          position={appState.pointB}
-          icon={MARKER_ICONS.B}
-          draggable
-          eventHandlers={{
-            drag: handleMarkerMove('pointB'),
-            dragend: handleMarkerMove('pointB'),
-          }}
-          title="Point B"
-        />
-        {appState.showPointC ? (
+        {appState.pointA ? (
+          <Marker
+            position={appState.pointA}
+            icon={MARKER_ICONS.A}
+            draggable
+            eventHandlers={{
+              drag: handleMarkerMove('pointA'),
+              dragend: handleMarkerMove('pointA'),
+            }}
+            title="Start point"
+          />
+        ) : null}
+        {appState.pointB ? (
+          <Marker
+            position={appState.pointB}
+            icon={MARKER_ICONS.B}
+            draggable
+            eventHandlers={{
+              drag: handleMarkerMove('pointB'),
+              dragend: handleMarkerMove('pointB'),
+            }}
+            title="Goal"
+          />
+        ) : null}
+        {appState.showPointC && appState.pointC ? (
           <Marker
             position={appState.pointC}
             icon={MARKER_ICONS.C}
@@ -279,10 +311,11 @@ function App() {
               drag: handleMarkerMove('pointC'),
               dragend: handleMarkerMove('pointC'),
             }}
-            title="Point C"
+            title="Third point"
           />
         ) : null}
         <RecenterMap target={recenterTarget} />
+        <MapLongPress onSelect={setHeldPoint} />
       </MapContainer>
 
       <div className="course-control">
@@ -318,24 +351,66 @@ function App() {
         <span aria-hidden="true">▲</span>
       </button>
 
-      <button
-        className="third-point-fab"
-        type="button"
-        aria-label={appState.showPointC ? 'Remove third point' : 'Add third point'}
-        onClick={() =>
-          setAppState((current) =>
-            current.showPointC
-              ? { ...current, showPointC: false }
-              : {
-                  ...current,
-                  pointC: midpoint(current.pointA, current.pointB),
-                  showPointC: true,
-                },
-          )
-        }
-      >
-        <span aria-hidden="true">{appState.showPointC ? '−' : '+'}</span>
-      </button>
+      {appState.pointA && appState.pointB ? (
+        <button
+          className="third-point-fab"
+          type="button"
+          aria-label={appState.showPointC ? 'Remove third point' : 'Add third point'}
+          onClick={() =>
+            setAppState((current) =>
+              current.showPointC
+                ? { ...current, showPointC: false }
+                : current.pointA && current.pointB
+                  ? {
+                      ...current,
+                      pointC: midpoint(current.pointA, current.pointB),
+                      showPointC: true,
+                    }
+                  : current,
+            )
+          }
+        >
+          <span aria-hidden="true">{appState.showPointC ? '−' : '+'}</span>
+        </button>
+      ) : null}
+
+      {heldPoint ? (
+        <section
+          className="point-placement"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="point-placement-title"
+        >
+          <strong id="point-placement-title">Set this position as</strong>
+          <div>
+            <button
+              type="button"
+              onClick={() => {
+                updatePoint('pointA', heldPoint)
+                setHeldPoint(null)
+              }}
+            >
+              Start
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                updatePoint('pointB', heldPoint)
+                setHeldPoint(null)
+              }}
+            >
+              Goal
+            </button>
+          </div>
+          <button
+            className="point-placement-cancel"
+            type="button"
+            onClick={() => setHeldPoint(null)}
+          >
+            Cancel
+          </button>
+        </section>
+      ) : null}
 
       {coursePickerOpen ? (
         <section

@@ -1,6 +1,6 @@
 import type { AppState, Point } from '../types'
 
-const STORAGE_KEY = 'golf-ruler-state-v1'
+const STORAGE_KEY = 'golf-ruler-state-v2'
 
 function isPoint(value: unknown): value is Point {
   if (!value || typeof value !== 'object') return false
@@ -21,9 +21,9 @@ function isAppState(value: unknown): value is AppState {
   if (!value || typeof value !== 'object') return false
   const candidate = value as Record<string, unknown>
   return (
-    isPoint(candidate.pointA) &&
-    isPoint(candidate.pointB) &&
-    isPoint(candidate.pointC) &&
+    (candidate.pointA === null || isPoint(candidate.pointA)) &&
+    (candidate.pointB === null || isPoint(candidate.pointB)) &&
+    (candidate.pointC === null || isPoint(candidate.pointC)) &&
     typeof candidate.showPointC === 'boolean'
   )
 }
