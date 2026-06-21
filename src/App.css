@@ -47,6 +47,15 @@
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
 }
 
+.direct-line {
+  stroke: var(--line);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 2 9;
+  opacity: 0.9;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
+}
+
 .distance-label-shell {
   display: grid;
   place-items: center;
@@ -73,46 +82,73 @@
 }
 
 .ruler-marker-shell {
-  display: grid;
-  place-items: center;
   background: transparent;
   border: 0;
 }
 
 .ruler-marker {
+  position: relative;
+  display: flex;
+  width: 54px;
+  height: 62px;
+  justify-content: center;
+  color: white;
+}
+
+.marker-badge {
   display: grid;
-  width: 50px;
-  height: 50px;
+  width: 36px;
+  height: 36px;
   place-items: center;
-  border: 4px solid var(--accent);
+  border: 2px solid white;
   border-radius: 50%;
   color: white;
   background: var(--ink);
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.55);
-  font-size: 24px;
-  font-weight: 900;
-  line-height: 1;
+}
+
+.marker-stem {
+  position: absolute;
+  top: 34px;
+  left: 26px;
+  width: 2px;
+  height: 24px;
+  background: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+}
+
+.marker-stem::after {
+  position: absolute;
+  bottom: -3px;
+  left: -2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+  content: '';
 }
 
 .marker-symbol {
-  width: 30px;
-  height: 30px;
+  width: 22px;
+  height: 22px;
   color: white;
 }
 
 .marker-person {
-  width: 31px;
-  height: 31px;
+  width: 23px;
+  height: 23px;
 }
 
 .marker-pin {
   color: var(--accent);
 }
 
-.ruler-marker-c {
-  width: 28px;
-  height: 28px;
-  border-width: 3px;
+.ruler-marker-c .marker-badge {
+  width: 16px;
+  height: 16px;
+  margin-top: 18px;
+  border-width: 2px;
   background: white;
 }
 
@@ -123,16 +159,6 @@
   right: 14px;
   left: 14px;
   max-width: 360px;
-}
-
-.action-area {
-  position: absolute;
-  z-index: 1000;
-  right: 14px;
-  bottom: max(104px, calc(env(safe-area-inset-bottom) + 96px));
-  left: 14px;
-  display: grid;
-  gap: 10px;
 }
 
 .course-picker-button {
@@ -375,18 +401,6 @@
   transform: translateY(1px);
 }
 
-.location-status {
-  justify-self: center;
-  margin: 0;
-  padding: 8px 12px;
-  border-radius: 9px;
-  color: white;
-  background: var(--surface);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
-  font-size: 13px;
-  text-align: center;
-}
-
 .point-placement {
   position: fixed;
   z-index: 1800;
@@ -441,14 +455,6 @@
     right: auto;
     left: 24px;
     width: 360px;
-  }
-
-  .action-area {
-    right: auto;
-    bottom: 100px;
-    left: 50%;
-    width: 360px;
-    transform: translateX(-50%);
   }
 
   .location-fab {

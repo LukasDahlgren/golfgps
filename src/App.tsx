@@ -45,9 +45,9 @@ const MARKER_CONTENT: Record<MarkerLabel, string> = {
 function markerIcon(label: MarkerLabel) {
   return L.divIcon({
     className: 'ruler-marker-shell',
-    html: `<span class="ruler-marker ruler-marker-${label.toLowerCase()}" aria-hidden="true">${MARKER_CONTENT[label]}</span>`,
-    iconSize: [54, 54],
-    iconAnchor: [27, 27],
+    html: `<span class="ruler-marker ruler-marker-${label.toLowerCase()}" aria-hidden="true"><span class="marker-badge">${MARKER_CONTENT[label]}</span><span class="marker-stem"></span></span>`,
+    iconSize: [54, 62],
+    iconAnchor: [27, 58],
   })
 }
 
@@ -91,10 +91,7 @@ function App() {
   const [appState, setAppState] = useState<AppState>(() =>
     loadAppState(DEFAULT_STATE),
   )
-  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null)
-  const [locationStatus, setLocationStatus] = useState<string | null>(null)
   const [recenterTarget, setRecenterTarget] = useState<Point | null>(null)
-  const [golfStatus, setGolfStatus] = useState<string | null>(null)
   const [nearbyCourses, setNearbyCourses] = useState<NearbyCourse[]>([])
   const [lastGpsPoint, setLastGpsPoint] = useState<Point | null>(null)
   const [coursePickerOpen, setCoursePickerOpen] = useState(false)
@@ -150,35 +147,13 @@ function App() {
         )
       : nearbyCourses
   }, [courseSearch, nearbyCourses])
-  const measurementHint =
-    !appState.pointA || !appState.pointB
-      ? 'Press and hold the map to set start or goal'
-      : null
-  const settledStatus = [
-    measurementHint,
-    golfStatus,
-    gpsAccuracy !== null ? `GPS accuracy ±${gpsAccuracy} m` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ')
-
   const lookupGolf = useCallback(
     async (origin: Point, selectedCourse: string) => {
-      setLocationStatus('Looking for a nearby green…')
       try {
         const suggestion = await findNearbyGolf(origin, selectedCourse)
         setNearbyCourses(suggestion.nearbyCourses)
-        if (suggestion.courseName && suggestion.green) {
-          setGolfStatus(`${suggestion.courseName} · nearby green found`)
-        } else if (suggestion.courseName) {
-          setGolfStatus(`${suggestion.courseName} · no mapped green nearby`)
-        } else {
-          setGolfStatus('Selected course was not found nearby')
-        }
       } catch {
-        setGolfStatus('Green suggestion unavailable · B can still be moved')
-      } finally {
-        setLocationStatus(null)
+        setNearbyCourses([])
       }
     },
     [],
@@ -196,26 +171,19 @@ function App() {
 
   const useCurrentLocation = useCallback(() => {
     if (!navigator.geolocation) {
-      setLocationStatus('Location is not supported by this browser.')
       return
     }
 
-    setLocationStatus('Finding your location…')
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
         const nextPoint = { lat: coords.latitude, lng: coords.longitude }
         updatePoint('pointA', nextPoint)
         setLastGpsPoint(nextPoint)
-        setGpsAccuracy(Math.round(coords.accuracy))
         setRecenterTarget(nextPoint)
         await lookupGolf(nextPoint, courseName)
       },
       (error) => {
-        setLocationStatus(
-          error.code === error.PERMISSION_DENIED
-            ? 'Location permission was denied.'
-            : 'Could not get your location. Try again outdoors.',
-        )
+        console.error('Could not get current location', error)
       },
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
     )
@@ -227,10 +195,19 @@ function App() {
         ? [appState.pointA, appState.pointC, appState.pointB]
         : [appState.pointA, appState.pointB]
       : null
+  const directRoute =
+    appState.showPointC && appState.pointA && appState.pointB && appState.pointC
+      ? [appState.pointA, appState.pointB]
+      : null
   const segmentLabels =
     appState.pointA && appState.pointB && distances
       ? appState.showPointC && appState.pointC
         ? [
+        {
+          key: 'ab',
+          position: midpoint(appState.pointA, appState.pointB),
+          distance: distances.ab,
+        },
         {
           key: 'ac',
           position: midpoint(appState.pointA, appState.pointC),
@@ -267,6 +244,12 @@ function App() {
         />
         {route ? (
           <Polyline positions={route} pathOptions={{ className: 'ruler-line' }} />
+        ) : null}
+        {directRoute ? (
+          <Polyline
+            positions={directRoute}
+            pathOptions={{ className: 'direct-line' }}
+          />
         ) : null}
         {segmentLabels.map((label) => (
           <Marker
@@ -332,14 +315,6 @@ function App() {
             <path d="m9 5 7 7-7 7" />
           </svg>
         </button>
-      </div>
-
-      <div className="action-area">
-        {locationStatus || settledStatus ? (
-          <p className="location-status" role="status">
-            {locationStatus ?? settledStatus}
-          </p>
-        ) : null}
       </div>
 
       <button
